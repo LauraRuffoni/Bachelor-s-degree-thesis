@@ -1,0 +1,409 @@
+---
+title: "FOXA1 regulates alternative splicing in prostate cancer"
+date: September 27, 2022
+output: 
+  html_document:
+    toc: TRUE
+    number_sections: FALSE
+    toc_float: TRUE
+    theme: sandstone
+    code_folding: "hide"
+---
+```{css setup1, echo=FALSE}
+div.col-md-12 .pull-right {
+  float: left !important
+}
+.btn-default {
+  background-color: white;
+  border: 2px solid black;
+  color: black;
+}
+.btn-default:hover {
+  background-color: #87A96B; /* Green */
+  color: white;
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message=FALSE)
+knitr::opts_chunk$set(warning=FALSE)
+library(reshape2)
+library(xlsx)
+library(DOSE)
+library(ggplot2)
+library(ggpubr)
+library(VennDiagram)
+library(openxlsx)
+library(readxl)
+library(ComplexHeatmap)
+library(viridis)
+library(ggVennDiagram)
+library(devtools)
+library(ggh4x)
+library(scales)
+library(tidyr)
+library(circlize)
+library(plyr)
+options(java.parameters = "-Xmx1000m")
+set.seed(19790801)
+n_sheets <- 40
+the_data <- replicate(
+  n_sheets,
+  {
+    n_rows <- sample(2e5, 1)
+    data.frame(
+      x = runif(n_rows),
+      y = sample(letters, n_rows, replace = TRUE)
+    )
+  },
+  simplify = FALSE
+)
+names(the_data) <- paste("Sheet", seq_len(n_sheets))
+```
+# <font size="4"> *Authors* </font>
+Marco Del Giudice,John G. Foster, <font size="3"> Serena Peirone </font>, Alberto Rissone, Livia Caizzi, Federica Gaudino, Caterina Parlato, Francesca Anselmi, Rebecca Arkell, Simonetta Guarrera, Salvatore Oliviero, Giuseppe Basso, Prabhakar Rajan, and <font size="3"> Matteo Cereda </font>.
+
+# <font size="4"> *Introduction* </font>
+In this paper is revealed the crucial role of the pioneer transcription factor FOXA1 in prostate cancer. FOXA1 is a master regulator of alternative splicing and buffers the noise of isoform production toward a mRNA dominant isoform. This regulation impacts on splicing of nonsensemediated decay-determinant exons influencing patient survival.
+
+# <font size="4"> *Summary* </font>
+
+Dysregulation of alternative splicing in prostate cancer is linked to transcriptional programs activated by AR, ERG, FOXA1, and MYC. Of the TFs, we found that FOXA1 has the broadest influence of  on regulatory regions of spliceosome genes across conditions, with the strongest involvement on proximal enhancers(including *HNRNPK* and *SRSF1*). FOXA1 is a pioneer transcription factor (TF), its role consists in opening chromatin to promote gene transcription and in regulating gene expression.
+Here, we show that FOXA1 functions as the primary orchestrator of alternative splicing dysregulation across 500 primary and metastatic prostate cancer transcriptomes. In prostate cancer, it coordinates its action with the androgen receptor (AR). Nevertheless it also possesses an AR-independent role of regulating epithelialto-mesenchymal transition (EMT).
+Our results indicate that FOXA1 lessens the noise of isoform production, in a consistent way across primary tumors, promoting the assembly of dominant isoforms in PC.
+This regulation especially impacts splicing factors themselves and leads to a reduction of nonsense-mediated decay (NMD)-targeted isoforms. We found a significantly higher inclusion of NMD-determinant *FLNA exon 30* in samples with high expression of both FOXA1 and *SRSF1*. This event promotes cell growth in vitro and predicts disease recurrence. 
+Overall, we report a role for FOXA1 in
+orchestrating AS regulation in PC at different stages of gene expression in prostate cancer through a cascade of events from chromatin access, to splicing factor regulation, and, finally, to alternative splicing of exons influencing patient survival.
+
+# <font size="4"> *Figures* </font>
+
+## <font size="4"> Figure *1.B* </font>
+
+Of the TFs, we found the most prevalent contribution of FOXA1 on regulatory regions of spliceosome genes across conditions, with the strongest involvement on proximal enhancers. These results corroborate the known contribution of AR, ERG, and MYC in AS regulation, while importantly revealing the broadest influence of FOXA1 (<span style="color:green">*green*</span>) on the transcriptional control of spliceosome genes compared with the other TFs. Here, is shown the direct transcriptional control of each TF, we assessed the over-representation of genes with active TF-bound regulatory regions in a list of 186 KEGG canonical pathways. Furthermore, we found that FOXA1 preferentially bound enhancer (<span style="color:blue">*blue*</span>), over promoter (<span style="color:yellow">*yellow*</span>), regions of differentially expressed SRGs.
+
+```{r, Es1B, fig.height=3.5, fig.width=5}
+V_cap<-as.data.frame(read_xlsx("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc3.xlsx", sheet= 2, col_names= T, skip= 4))
+Ln_cap<-as.data.frame(read_xlsx("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc3.xlsx", sheet= 3, col_names= T, skip= 4))
+
+Ln_cap$Line<-"LNCaP"
+V_cap$Line<-"VCaP"
+
+
+
+V_cap<-ddply(V_cap, .(Region, TF), mutate, rank=rank(FDR))
+Ln_cap<-ddply(Ln_cap, .(Region, TF), mutate, rank=rank(FDR))
+
+cap<-rbind(Ln_cap, V_cap)
+
+kegg<-subset(cap, ID== "KEGG_SPLICEOSOME")
+kegg_FDR<-subset(kegg, FDR<= 0.1 & rank<=5)
+kegg_FDR$TF<-factor(kegg_FDR$TF, levels=c("FOXA1","AR","ERG","MYC"))
+
+kegg_FDR$Ratio<-as.numeric(sapply(strsplit(kegg_FDR$GeneRatio, "/"), "[[", 1))/as.numeric(sapply(strsplit(kegg_FDR$`Background Ratio`, "/"), "[[",1))
+
+strip<-strip_themed(text_y= elem_list_text(colour= list("white", "black")),background_y= elem_list_rect(fill = c("#191970", "#FFD800")))  
+
+kegg_FDR$Region[kegg_FDR$Region == "Promoter"] <- "Pro."
+kegg_FDR$Region[kegg_FDR$Region == "Enhancer"] <- "Ehn."
+
+plot_1B<-ggplot(kegg_FDR, aes(x= Ratio, y= Line))+
+  geom_segment(aes(x= 0, y= Line, xend= Ratio, yend= Line), lwd= 0.7)+
+  geom_point(aes(shape= TF, color=TF, fill=TF), size= 5, colour="black")+facet_wrap2(~ Region, ncol=1, nrow=2, strip.position= "left", strip=strip)+theme_classic()+
+  scale_shape_manual(values=c(23, 21, 22, 24))+
+  scale_fill_manual(values=c(alpha("#008000",0.8),alpha("white",0.6),alpha("white",0.6),alpha("white",0.6)))+xlab("Spliceosome genes with active TF-bound regions")+ylab(NULL)+theme(legend.title = element_blank(),strip.placement = "outside", strip.background = element_rect(colour = "white"), axis.line.y = element_blank(), axis.ticks.y = element_blank(), axis.text = element_text(color="black")) +scale_x_continuous(labels=percent)
+plot_1B
+```
+
+
+## <font size="4"> Figure *1.F* </font>
+
+We observed a significantly reduced expression of *HNRNPK* and *SRSF1* in the majority of PC cell lines upon FOXA1 depletion. Consistently, ectopic expression of FOXA1 protein in PC3 cells resulted in a significant increase in HNRNPK and SRSF1 expression compared with the control. This plot demonstrate that highly expressed FOXA1 increases the expression of splicing-related genes _SRGs_. In particular we focused our tests on  _HNRNPK_, _HNRNPL_ and _SRSF1_. 
+
+```{r, fig.height=4, fig.width=3, Es1.F}
+plot_F<-read_excel("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc4.xlsx", sheet=8)
+
+plot_F<-plot_F[-1,]
+colnames(plot_F)<- plot_F[1,]
+plot_F<-plot_F[-1,]
+
+plot_F$Symbol<- factor(plot_F$Symbol, levels = c("SRSF1", "HNRNPL", "HNRNPK"))
+plot_F<-plot_F[order(plot_F$Symbol),]
+
+plot_F$Mean<- as.numeric(plot_F$Mean)
+plot_F$sd<- as.numeric(plot_F$sd)
+plot_F$errore<-plot_F$sd+plot_F$Mean
+
+plot_F$Condition[plot_F$Condition=="wt"]<- "VO"
+plot_F$Condition[plot_F$Condition=="oe"]<- "FOXA1"
+
+Plot<- ggplot(plot_F, aes(x=Symbol , y= Mean , fill=Condition))+geom_bar(stat="identity", position = "dodge", color="black")+theme_classic()+ geom_errorbar(aes(ymin=Mean, ymax=errore), width=.2, position=position_dodge(.9))+ylab(bquote(FC["to VO"]))+xlab(NULL)+ theme(legend.title = element_blank())+scale_fill_manual(values=c("FOXA1"="darkgreen", "VO"="white"))+ coord_flip() + theme(legend.position = "bottom", axis.text = element_text(colour = "black"))+geom_text(label="*",x = 3.12,y = 3.1, check_overlap = F,size=5)+geom_text(label="*",x = 1,y = 1.95, check_overlap = F,size=5)+geom_text(label="]",x = 1.05,y = 1.8, check_overlap = F,size=5)+geom_text(label="]",x = 3.18,y = 2.95, check_overlap = F,size=5)
+
+Plot
+```
+
+
+## <font size="4"> Figure *3.C* and *3.B* </font> {.tabset}
+
+Splicing factors can regulate their own mRNAs by controlling the inclusion of nonsense mediated decay (NMD)-determinant exons. By selectively including premature termination codon (PTC)-introducing and PTC-preventing exons, these transcripts can be targeted for degradation by NMD. 
+Figure 3.B) Therefore, we sought to assess the regulation of NMD-determinant exons by FOXA1. Using a list of 15,518 NMD-determinant cassette exons (CEs), we found a significant enrichment of this class of exons among FOXA1-regulated exons. 
+Figure 3C) By inspecting the distribution of mean inclusion changes in tumors with high FOXA1 expression compared with remaining ones, we found that FOXA1-regulated PTC-introducing CEs were significantly inhibited, whereas PTC-preventing events were significantly enhanced compared with controls. 
+*These results suggest that FOXA1 predominantly calibrates AS toward dominant isoforms that escape NMD.*
+
+
+### *3B*
+```{r, Es3B,fig.height=3, fig.width=4, class.source = 'fold-hide'}
+B<-read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc5csv.csv",head=T,sep=';', skip = 3)
+
+tabella<-subset(B,exon_type=="FOXA1-unregulated"|exon_type=="FOXA1-regulated" & event_type=="ES")
+
+l<-as.data.frame(table(tabella$exon_type, tabella$NMD.determinant))
+l<-dcast(l, Var1~Var2, value.var = "Freq")
+l$`PTC-intr.`<-l$`PTC-introducing`/(l$none+l$`PTC-preventing`+l$`PTC-introducing`)
+l$`PTC-prev.`<-l$`PTC-preventing`/(l$none+l$`PTC-preventing`+l$`PTC-introducing`)
+
+l$tot<-rowSums(l[, 2:4])
+
+tabella1<-subset(tabella, NMD.determinant=="PTC-introducing"& exon_type=="FOXA1-unregulated" & event_type=="ES")
+
+tabella2<-melt(data = l, id.vars = c("Var1", "none", "PTC-introducing", "PTC-preventing", "tot"))
+
+tabella2$Var1<- factor(tabella2$Var1, levels = c("FOXA1-unregulated", "FOXA1-regulated"))
+tabella2<-tabella2[order(tabella2$Var1),]
+
+strip <- strip_themed(background_x = elem_list_rect(fill = c("#007FFF","#800080")))
+colnames(tabella2)[1]<- "DASEs"
+
+Plot_B<- ggplot(tabella2, aes(x=DASEs , y= value*100 , fill=DASEs))+geom_bar(stat="identity", position = "dodge", color="black")+theme_classic()+scale_fill_manual(values=c("FOXA1-regulated"="darkgreen", "FOXA1-unregulated"="white"))+ theme(legend.position = "bottom")+facet_wrap2(~variable, strip = strip) +ylab("CEs (%)")+ xlab(NULL)+theme(legend.position = "right",axis.line.x = element_blank(), axis.ticks.x = element_blank(), axis.text.x = element_blank())+ theme(strip.text = element_text(color = "white"))+ geom_text(aes(label=c("932", "1012", "252", "263"), y=7, angle=90), vjust=-0.2)+geom_text(label="**",x = 1.55,y = 22.7, check_overlap = F,size=5)+geom_text(label="]",x = 1.5,y = 22.5, check_overlap = F,size=5, angle=90)
+Plot_B
+```
+
+### *3C*
+```{r, Es3C,fig.height=5, fig.width=4, class.source = 'fold-hide'}
+C<-read_excel("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc5.xlsx", sheet=3)
+C<-C[-1,]
+colnames(C)<- C[1,]
+C<-C[-1,]
+colnames(C)<- C[1,]
+C<-C[-1,]
+C<-subset(C, `NMD-determinant`!="none" & `NMD-determinant`!="NA")
+C<- C[c("Ensembl_gene_ID","delta_PSI_median","delta_PSI_mean","delta_PSI_sd","exon_type","NMD-determinant")]
+
+i<-c(2:4)
+C[,i]<-apply(C[,i],2,function(x) as.numeric(x))
+
+strip <- strip_themed(background_x = elem_list_rect(fill = c("#007FFF","#800080")))
+
+tutto<-ggplot(C, aes(x=exon_type, y=delta_PSI_mean, fill= exon_type))+
+  geom_hline(yintercept = 0)+ geom_boxplot(notch=TRUE,notchwidth = 0.8,outlier.colour="black",outlier.fill="black",outlier.size=1)+theme_classic()+scale_fill_manual(values=c("FOXA1-regulated"="darkgreen", "FOXA1-unregulated"="white"))+xlab(NULL)+ ylab(expression(paste(Delta, mu,"(",psi,")")))+theme(legend.position = "bottom",legend.title = element_blank(),axis.line.x = element_blank(), axis.ticks.x = element_blank(), axis.text.x = element_blank())+facet_wrap2(~`NMD-determinant`, strip = strip)+ theme(strip.text = element_text(color = "white"))+stat_compare_means(aes(group=exon_type),label="p.signif", label.x = 1.5, label.y = 12, cex=5)
+tutto
+```
+
+### *Arranged*{.active}
+```{r, Es3tot, fig.height=6.5, fig.width=5}
+ggarrange(Plot_B, tutto, nrow = 2, common.legend = T, labels = c("B", "C"), font.label = list(color="black", face="bold",size=12), heights = c(1,1.2), widths = c(1, 0.7))
+```
+
+## <font size="4"> Figure *4.C* </font>
+
+Furthermore, splicing is a co-transcriptional process in which chromatin modifications can impact on recruitment of splicing factors to the pre-mRNA of a minority of exons to enhance their definition. To investigate chromatin involvement in FOXA1-mediated exon definition, we collected 876 CEs marked by combinations of histone modifications and measured their over-representation within FOXA1-regulated exons relative to unregulated events. We found that a minority of FOXA1-regulated exons were significantly enriched for *splicing-associated chromatin signatures* compared with FOXA1-unregulated events, particularly for SACS marking generally excluded exons. These findings suggest that chromatin modifications may also contribute to FOXA1-mediated exon regulation for a subset of events. In this bar plots is shown the fraction of SACS marked exons in FOXA1-regulated and FOXA1-unregulated exons. Color indicates SACS type.
+
+```{r, Es4C, fig.width=3.5, fig.height=4.5}
+D<-read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc5-4.csv",head=T,sep=';', skip = 2)
+
+G<-read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc5conta.csv",head=T,sep=';', skip = 3)
+
+D<-separate_rows(D,sacs_type, convert = T)
+D<- subset(D, sacs_type!="NA")
+tot_reg<-sum(G$exon_type=="FOXA1-regulated")
+tot_unr<-sum(G$exon_type=="FOXA1-unregulated")
+
+D$event_type= G$event_type[match(D$event_id,G$event_id)]
+
+melt<-melt(table(D$sacs_type,D$ASE_set))
+colnames(melt)<- c("sacs_type", "ASE_set", "value")
+
+
+melt$perc[1:6]<- melt$value[1:6]/876
+melt$perc[7:12]<- melt$value[7:12]/876
+
+SACS<-ggplot(melt, aes(x=ASE_set , y= perc*100, fill=factor(sacs_type)))+geom_bar(stat="identity", position = "stack", color="white")+theme_classic()+ylab("CEs with SACS(%)")+xlab(NULL)+scale_x_discrete(labels=c("FOXA1-unr.", "FOXA1-reg."))+scale_fill_manual(values=c("1"="#800000", "2"="#B20000","3"="#CC7722", "4"="#120A8F","5"="#002FA7", "6"="#0F52BA","7"="#6495ED"),labels=c("1: H3K4me1+H3K4me2","2: H3K9me3+5mC","3: H4K20me1+H4K91ac", "4: H4K20me1+H3K79me2", "5: H3K9me3+5mC", "6: H3K27me3+H3K4me3", "7: H3K9ac+H3K14ac"))+theme(plot.title=element_text(hjust=0.5))+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5, color =c("FOXA1-unregulated"="black", "FOXA1_regulated"="#008000")), axis.line.x = element_blank(), axis.ticks.x = element_blank())+labs(fill="Histone marks:")+ scale_y_continuous(expand = c(0,0))+geom_text(label=expression("4.0e"^"-07"),parse = T,x = 2,y = 12, check_overlap = F,size=3)
+SACS
+```
+
+## <font size="4"> Figure *4.E* </font>
+
+We identified 13 tetramers enriched at FOXA1-regulated exons and associated with 10 FOXA1-regulated SRGs. The majority of tetramers (77%) were enriched at FOXA1-inhibited exons, corroborating the propensity for an extensive FOXA1-mediated exon silencing. In particular, T-rich tetramers were strongly enriched at the 3ʹ ss of FOXA1-inhibited exons. These motifs were associated with RBPs that canonically bind within the upstream intron, predominantly FOXA1-controlled proteins *PTBP1*, *U2AF2*, *HNRNPC*, and *HNRNPK*. Together, our data describe the FOXA1-mediated splicing code in primary PC where different trans-acting splicing factors control exon inclusion. The heatmap shows the association between enriched multivalent RNA motifs and cognate SRGs that were differentially expressed in primary PCs or mCRPC in terms of matching score(MS).
+
+```{r, Es4E, fig.height=5, fig.width=5}
+top<-read_excel("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc6.xlsx", sheet=3)
+top<-top[-1,]
+colnames(top)<- top[1,]
+top<-top[-1,]
+
+uniche<-unique(top$RBP)
+
+heat<-read_excel("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc6.xlsx", sheet=6)
+heat<-heat[-1,]
+colnames(heat)<- heat[1,]
+heat<-heat[-1,]
+colnames(heat)[1]<- "RBP"
+unique<-subset(heat, RBP%in%uniche)
+
+i<-c(2:14)
+unique[,i]<-apply(unique[,i],2,function(x) as.numeric(x))
+
+unique<- subset(unique, unique$RBP!="CDC40" & unique$RBP!="HNRNPU")
+unique$RBP<- factor(unique$RBP, levels = c("PTBP1", "HNRNPC", "U2AF2","HNRNPK","RBM22", "PRPF8", "SF3B4","HNRNPM", "SF3A3", "SMNDC1"))
+unique=unique[order(unique$RBP),]
+
+
+colonne<-c("RBP","YTCY", "YCTY", "YTTS","TGTG","RTGW", "RTGY", "YGTS","ATGT", "YGCW", "YGCY", "WACW", "WCAS", "CTAA")
+unique <- unique[,colonne]
+
+map <- as.matrix(unique[,2:13])
+
+map<-rescale(map, to = c(0, 20), from = range(map, na.rm = TRUE))
+
+map<- t(map)
+colnames(map)=unique$RBP
+color <- colorRamp2(quantile(unlist(map), seq(0,1, 0.20)), colorRampPalette( viridis::viridis(6))(6))
+
+a<-Heatmap(map, col=color, 
+        cluster_rows = FALSE, 
+        cluster_columns = FALSE,
+        width=unit(0.8*ncol(map), "cm"),
+        height=unit(0.8*nrow(map), "cm"),
+        row_names_side = "left",
+        column_title = "trans-acting factors",
+        border = "black",
+        border_gp = gpar(col = "black"),
+        column_names_rot = 45,
+        heatmap_legend_param = list(title = "MS", border="black"),
+        )
+a
+```
+
+## <font size="4"> Figure *5.B* </font>
+
+Of these groups, univariate Cox proportional hazard models revealed that a low cumulative inclusion of FOXA1-inhibited PTC-introducing exons was significantly associated with a longer patient survival relative to high inclusion. Similarly, a high cumulative inclusion of FOXA1-enhanced PTC-preventing exons was significantly associated with a better prognosis than low cumulative inclusion. 
+Secondly, to determine the impact of each individual NMD-determinant exon on patient survival, we again used a univariate Cox proportional hazard model to calculate the hazard ratio (HR) associated with exon inclusion. Overall, 85 exons were associated with survival. Most of the exons associated with poor prognosis (*HR > 1, ‘‘harmful’’*) were FOXA1-inhibited PTC-introducing CEs. Conversely, exons associated with favorable prognosis (*HR < 1, ‘‘favorable’’*) were mostly FOXA1-enhanced PTC-preventing exons. Together, these results suggest that FOXA1-mediated AS of NMD-determinant exons predominantly results in a positive patient survival by silencing harmful PTC-introducing exons and enhancing the inclusion of favorable PTC-preventing ones. In this bar plots is possible to determine the number of FOXA1-inhibited or -enhanced NMD-determinant exons with a significant harmful or favorable impact on patient disease-free survival.
+
+```{r, Es5B, fig.height=4, fig.width=4}
+fig5b<-read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc5_foxareg.csv",header = TRUE,sep=';',skip=3, dec = ",")
+fig5b_HR<-read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc5-5.csv",header = TRUE,sep=';',skip=2, dec = ",")
+
+fig5b_HR<-subset(fig5b_HR,hazard_ratio!="NA")
+
+fig5b_merge<-subset(fig5b, event_id%in%fig5b_HR$event_id)
+
+fig5b_merge$direction<-ifelse(fig5b_merge$delta_PSI_mean>0,"FOXA1-inh","FOXA1-enh")
+
+fig5b_merge$hazard_ratio<- fig5b_HR$hazard_ratio
+
+fig5b_merge$HR<-ifelse(fig5b_merge$hazard_ratio>1,"HR>1","HR<1")
+
+fig5b_merge$HR<- factor(fig5b_merge$HR, levels = c("HR>1","HR<1"))
+fig5b_merge<-fig5b_merge[order(fig5b_merge$HR),]
+
+strip <- strip_themed(background_y = elem_list_rect(fill = c("#FF9933","#008000")))
+colnames(fig5b_merge)[36]<- "CE"
+
+Plot_5B<-ggplot(fig5b_merge, aes(x=direction,fill=CE))+theme_classic()+geom_bar(position = "dodge", color="black")+facet_wrap2(~HR,nrow = 2,ncol=1, strip = strip, strip.position = "left")+ ylab(NULL)+scale_x_discrete(labels = c("FOXA1-inh.", "FOXA1-enh."))+scale_fill_manual(values=c("PTC-introducing"="#007FFF", "PTC-preventing"="#800080"))+ xlab(NULL)+theme(plot.title=element_text(hjust=0.5))+theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.5, color =c("FOXA1-inh."="#007FFF", "FOXA1-enh."="red")),legend.position = "right", legend.direction = "vertical")+ theme(strip.text = element_text(color = "white"), strip.placement = "outside")
+Plot_5B
+```
+
+## <font size="4"> Figure *6.A* </font>
+
+Being the most harmful NMD-determinant exon associated with FOXA1 expression, we sought to investigate the impact of FLNA exon 30 on PC cell phenotypes. We observed a significant increase in growth and survival of cells overexpressing *FLNA+ex30* compared with the case for *FLNAΔ30*. These findings demonstrate that FLNA exon 30 inclusion is regulated by *SRSF*1, which is directly controlled by FOXA1. In conclusion, an increased expression of FLNA exon 30 confers a growth advantage to PC cells, which may drive poorer patient prognosis.
+
+```{r, Es6A, fig.width=6, fig.height=3.5}
+left_6A<-as.data.frame(read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc7left.csv", head=T, sep=';', skip=2, dec=","))
+
+left_6A<-left_6A[c(2,3),]
+
+plot_l<-ggplot(left_6A, aes(x=Condition, y=Mean)) + geom_bar(stat="identity", fill="white", col="black", names=names) + theme_classic() + ggtitle("Cell Growth") + ylab(bquote(FC["to VO"])) + geom_errorbar(aes(x=Condition, ymin=Mean, ymax=Mean+sd), width=0.5) +  scale_x_discrete(labels = c("FLNA+ex30", "FLNAΔex30")) + xlab(NULL) + theme(axis.text.x = element_text(angle = 45, vjust = 0.5), axis.ticks.x = element_blank())+ scale_y_continuous(expand = c(0,0))
+
+centre_6A<-as.data.frame(read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc7middle.csv", head=T, sep=';', skip=2, dec=","))
+
+centre_6A<-centre_6A[c(2,3),]
+plot_c<-ggplot(centre_6A, aes(x=Condition, y=Mean)) + geom_bar(stat="identity", fill="white", col="black") + theme_classic() + ggtitle("Colonies") + ylab(bquote(FC["to VO"])) + geom_errorbar( aes(x=Condition, ymin=Mean, ymax=Mean+sd),width=0.5) + scale_x_discrete(labels = c("FLNA+ex30", "FLNAΔex30")) + xlab(NULL) + theme(axis.text.x = element_text(angle = 45, vjust = 0.5), axis.ticks.x = element_blank())+ scale_y_continuous(expand = c(0,0))
+
+right_6A<-as.data.frame(read.csv("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc7right.csv", head=T, sep=';', skip=2, dec=","))
+
+right_6A<-right_6A[c(2,3),]
+plot_r<-ggplot(right_6A, aes(x=Condition, y=Mean)) + geom_bar(stat="identity", fill="white", col="black") + theme_classic() + ggtitle(bquote(Absorbance["560 nm"])) + ylab(bquote(FC["to VO"])) + geom_errorbar( aes(x=Condition, ymin=Mean, ymax=Mean+sd),width=0.5) + scale_x_discrete(labels = c("FLNA+ex30", "FLNAΔex30")) + xlab(NULL) + theme(axis.text.x = element_text(angle = 45, vjust = 0.5), axis.ticks.x = element_blank())+ scale_y_continuous(expand = c(0,0))
+
+Plot_6<-ggarrange(plot_l, plot_c, plot_r, nrow = 1)
+Plot_6
+```
+
+## <font size="4"> Figure *S2.B* </font>
+
+This plot is a scatter plots showing the correlation between median log2 Fold Change (FC) and FC measured by EdgeR (right) or DESeq2 (left) for the SRGs set. The value of Pearson’s correlation coefficient (r) is reported.
+
+```{r, EsS2B, fig.height=3, fig.width=5}
+S<-read_excel("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc4.xlsx", sheet=2)
+S<-S[-1,]
+colnames(S)<- S[1,]
+S<-S[-1,]
+
+S<- S[c("Ensembl_id","L2R", "edgeR_logFC","DESeq2_log2FoldChange")]
+
+i=c(2:4)
+S[,i]<-apply(S[,i],2,function(x) as.numeric(x))
+
+correlation1<-cor(S$L2R,S$edgeR_logFC,method="pearson")
+
+primo<-ggplot(S, aes(x=L2R, y=edgeR_logFC))+geom_point()+geom_smooth(method ="lm", se=F)+ theme_bw()+theme(panel.grid = element_blank())+ annotate("text", x=-0.3,y=1,label=paste("ρ=",round(correlation1,2)))+labs(x=expression('median TPM log'[2]*'FC'),y=expression('EdgeR log'[2]*'FC'))
+
+correlation2<-cor(S$L2R,S$DESeq2_log2FoldChange,method="pearson")
+
+secondo<-ggplot(S, aes(x=L2R, y=DESeq2_log2FoldChange))+geom_point()+geom_smooth(method ="lm", se=F)+ theme_bw()+theme(panel.grid = element_blank())+annotate("text",x=-0.3,y=1,label=paste("ρ=",round(correlation2,2)))+labs(x=expression('median TPM log'[2]*'FC'),y=expression('DESeq2 log'[2]*'FC'))
+
+insieme<-ggarrange(primo, secondo, widths = 1, heights = 1)
+insieme
+```
+
+## <font size="4"> Figure *S2.I* </font>
+
+This is a bar plots showing the fractions of FOXA1-regulated SRGs in primary PCs and mCRPCs that changed in expression upon FOXA1 depletion in VCaP and PC3 cells. Most of SRGs were concordantly regulated by FOXA1 in both cell lines to a similar magnitude to primary PCs and mCRPCs. Consistent with the metastatic origin of the cell lines, a higher number of differentially expressed SRGs in mCRPCs were concordantly up-regulated in the cell lines than the SRGs that were DE in primary PC. On average, 76% of the FOXA1-regulated SRGs in primary PCs and/or mCRPCs were concordantly regulated by FOXA1 in the two cell lines.
+
+```{r, EsS2l, fig.height=3, fig.width=5}
+S2I<-as.data.frame(read_xlsx("/Users/admin/Desktop/R/Report/1-s2.0-S2211124722012414-mmc4.xlsx", sheet=4, skip = 4))
+
+tab<-function(f){
+  
+  f$concordant<-c("Discordant","Concordant")[as.numeric(f$Same_direction_public)+1]
+  f$fdr<-c("NS","sign")[as.numeric(f$Sign)+1]
+  
+  t<-(table(f$concordant,f$fdr))
+  
+  ret<-reshape2::melt(t)
+    
+  colnames(ret)<-c("Concordant","FDR","value")
+  
+  return(ret)
+}
+
+
+fig<-rbind.data.frame()
+for (i in unique(S2I$Cancer)) {
+  for(j in unique(S2I$Cell_line)){
+    tmp<-tab(subset(S2I, Cancer==i & Cell_line==j))
+    tmp$Cancer<-i
+    tmp$Cell_line<-j
+    fig<-rbind.data.frame(fig, tmp)
+  }
+}
+
+
+fig$condition<-paste0(fig$Concordant,"_",fig$FDR)
+fig$condition<-factor(as.character(fig$condition),levels = rev(c("Concordant_sign","Concordant_NS","Discordant_sign","Discordant_NS")))
+
+fig$Cancer[fig$Cancer == "P"] <- "Primary PC"
+fig$Cancer[fig$Cancer == "M"] <- "mCRPC"
+
+
+ggplot(fig, aes(x=Cell_line, y=value, fill=condition))+ geom_bar(stat = "identity", position = "fill", width = 0.4, color="black")+ coord_flip()+ facet_grid(Cancer~.,switch = "y")+theme_classic()+ xlab(NULL)+ylab("FOXA1-regulated SGRs")+scale_y_continuous(labels=percent)+theme( axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.text = element_text(color = "black"), strip.placement = "outside", strip.background = element_blank())+scale_fill_manual(values=c("Discordant_NS"="#DB244F", "Discordant_sign"="#FF9966", "Concordant_NS"="#007BB8", "Concordant_sign"="#191970"))
+```
